@@ -44,3 +44,11 @@ def rota_verificacao():
 @app.get("/tarefas")
 def listar_tarefas(db: Session = Depends(get_db)):
     return db.query(TarefaBD).all()
+
+@app.post("/tarefas")
+def criar_tarefa(tarefa: TarefaSchema, db: Session = Depends(get_db)):
+    nova_tarefa = TarefaBD(titulo=tarefa.titulo)
+    db.add(nova_tarefa)
+    db.commit()
+    db.refresh(nova_tarefa)
+    return nova_tarefa
