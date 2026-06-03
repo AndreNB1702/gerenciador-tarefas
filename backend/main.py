@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String
@@ -52,3 +52,14 @@ def criar_tarefa(tarefa: TarefaSchema, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(nova_tarefa)
     return nova_tarefa
+
+@app.delete("/tarefas/{tarefa_id}")
+def deletar_tarefa(tarefa_id: int, db: Session = Depends(get_db)):
+    tarefa = db.query(TarefaBD).filter(TarefaBD.id == tarefa_id).first()
+    
+    if not tarefa:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+        
+    db.delete(tarefa)
+    db.commit()
+    return {"status": "sucesso", "mensagem": "Tarefa removida"}
