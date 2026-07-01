@@ -3,129 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de Estoque</title>
+    <title>Sistema de Estoque</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 25px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #1e3a8a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
-        header, main, section { 
-            background: #ffffff; 
-            padding: 20px; 
-            margin-bottom: 20px; 
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
+        .btn-sair { background: #d93025; position: absolute; top: 15px; right: 15px; width: 80px; font-size: 0.8rem; }
         
-        h1 { font-size: 1.6rem; color: #1e3a8a; text-align: center; }
-        h2 { font-size: 1.2rem; margin-bottom: 15px; }
-        
-        .form-grupo { display: flex; flex-direction: column; gap: 10px; }
-        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
-        button { padding: 12px 20px; background: #1e3a8a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
-        
-        .tabela-responsiva { width: 100%; overflow-x: auto; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
-        th, td { padding: 12px; border-bottom: 1px solid #eee; }
-        th { background-color: #f8fafc; color: #1e3a8a; }
-        
-        .btn-deletar { background: #d93025; color: white; padding: 6px 12px; font-size: 0.85rem; border: none; border-radius: 4px; cursor: pointer; }
-
-        @media (min-width: 768px) {
-            body { max-width: 700px; margin: 40px auto; }
-            .form-linha { display: flex; gap: 10px; }
-            button { width: auto; align-self: flex-end; height: 47px; }
-        }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>📦 Controle de Estoque</h1>
-    </header>
+    <div id="login-screen" class="card">
+        <h2 style="margin-bottom: 20px;">Login</h2>
+        <input type="text" id="user" placeholder="Usuário">
+        <input type="password" id="pass" placeholder="Senha" onkeypress="handleEnter(event)">
+        <button onclick="fazerLogin()">Entrar</button>
+    </div>
 
-    <main>
-        <section aria-label="Cadastrar Novo Produto">
-            <h2>Novo Produto</h2>
-            <div class="form-grupo">
-                <div class="form-linha">
-                    <input type="text" id="prod-nome" placeholder="Nome do produto">
-                    <input type="number" id="prod-qtd" placeholder="Qtd" min="0">
-                    <input type="number" id="prod-preco" placeholder="Preço (R$)" step="0.01" min="0">
-                </div>
-                <button onclick="adicionarProduto()">Cadastrar</button>
-            </div>
-        </section>
+    <div id="estoque-screen" class="card hidden" style="max-width: 800px;">
+        <button class="btn-sair" onclick="logout()">Sair</button>
+        <h1>Estoque</h1>
+        
+        <div id="admin-area" class="hidden" style="margin-top: 20px;">
+            <input type="text" id="p-nome" placeholder="Nome do produto">
+            <input type="number" id="p-qtd" placeholder="Qtd">
+            <input type="number" id="p-preco" placeholder="Preço">
+            <button onclick="adicionar()">Cadastrar Produto</button>
+        </div>
 
-        <section aria-label="Produtos em Estoque">
-            <h2>Produtos Cadastrados</h2>
-            <div class="tabela-responsiva">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Produto</th>
-                            <th>Qtd</th>
-                            <th>Preço</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-produtos">
-                        </tbody>
-                </table>
-            </div>
-        </section>
-    </main>
+        <table>
+            <thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Ação</th></tr></thead>
+            <tbody id="lista"></tbody>
+        </table>
+    </div>
 
     <script>
-        const API_URL = "http://localhost:8000/produtos";
+        const API = "http://localhost:8000";
 
-        async function carregarProdutos() {
-            const res = await fetch(API_URL);
-            const produtos = await res.json();
-            const tabela = document.getElementById("lista-produtos");
-            tabela.innerHTML = "";
+        // Função para capturar o Enter
+        function handleEnter(event) {
+            if (event.key === "Enter") fazerLogin();
+        }
+
+        async function fazerLogin() {
+            const u = document.getElementById("user").value;
+            const p = document.getElementById("pass").value;
+            const res = await fetch(`${API}/login?username=${u}&password=${p}`, { method: "POST" });
             
-            produtos.forEach(p => {
-                tabela.innerHTML += `
-                    <tr>
-                        <td><strong>${p.nome}</strong></td>
-                        <td>${p.quantidade}</td>
-                        <td>R$ ${p.preco.toFixed(2)}</td>
-                        <td><button class="btn-deletar" onclick="deletarProduto(${p.id})">Excluir</button></td>
-                    </tr>
-                `;
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem("role", data.role);
+                document.getElementById("login-screen").classList.add("hidden");
+                document.getElementById("estoque-screen").classList.remove("hidden");
+                if(data.role === "admin") document.getElementById("admin-area").classList.remove("hidden");
+                carregar();
+            } else { alert("Usuário ou senha incorretos!"); }
+        }
+
+        async function carregar() {
+            const res = await fetch(`${API}/produtos`);
+            const prods = await res.json();
+            const role = localStorage.getItem("role");
+            const lista = document.getElementById("lista");
+            lista.innerHTML = "";
+            prods.forEach(p => {
+                const acao = role === "admin" 
+                    ? `<button style="background:#d93025" onclick="deletar(${p.id})">Excluir</button>` 
+                    : `<button style="background:#16a34a" onclick="comprar(${p.id})">Comprar</button>`;
+                lista.innerHTML += `<tr><td>${p.nome}</td><td>${p.quantidade}</td><td>R$ ${p.preco.toFixed(2)}</td><td>${acao}</td></tr>`;
             });
         }
 
-        async function adicionarProduto() {
-            const nome = document.getElementById("prod-nome").value;
-            const qtd = document.getElementById("prod-qtd").value;
-            const preco = document.getElementById("prod-preco").value;
-
-            if (!nome.trim() || qtd === "" || preco === "") return;
-
-            await fetch(API_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    nome: nome,
-                    quantidade: parseInt(qtd),
-                    preco: parseFloat(preco)
-                })
+        async function adicionar() {
+            const body = { 
+                nome: document.getElementById("p-nome").value,
+                quantidade: parseInt(document.getElementById("p-qtd").value),
+                preco: parseFloat(document.getElementById("p-preco").value)
+            };
+            await fetch(`${API}/produtos`, { 
+                method: "POST", 
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body) 
             });
-
-            document.getElementById("prod-nome").value = "";
-            document.getElementById("prod-qtd").value = "";
-            document.getElementById("prod-preco").value = "";
-
-            carregarProdutos();
+            carregar();
         }
 
-        async function deletarProduto(id) {
-            await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-            carregarProdutos();
+        async function comprar(id) {
+            const qtd = prompt("Quantidade?");
+            if(!qtd) return;
+            await fetch(`${API}/produtos/${id}/comprar?quantidade_comprada=${qtd}`, { method: "PUT" });
+            carregar();
         }
 
-        carregarProdutos();
+        async function deletar(id) {
+            await fetch(`${API}/produtos/${id}`, { method: "DELETE" });
+            carregar();
+        }
+
+        function logout() {
+            localStorage.clear();
+            location.reload();
+        }
     </script>
 </body>
 </html>
