@@ -2,8 +2,10 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import os
+import time
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
 
@@ -26,7 +28,40 @@ class UsuarioBD(Base):
     password = Column(String, nullable=False)
     role = Column(String, nullable=False) # 'admin' ou 'usuario'
 
+# --- ESPERA O BANCO FICAR PRONTO (evita crash no docker compose up) ---
+def aguardar_banco(tentativas=15, intervalo=2):
+    for i in range(1, tentativas + 1):
+        try:
+            conexao = engine.connect()
+            conexao.close()
+            print("Banco de dados conectado com sucesso.")
+            return
+        except OperationalError:
+            print(f"Banco ainda não está pronto (tentativa {i}/{tentativas}). Aguardando {intervalo}s...")
+            time.sleep(intervalo)
+    raise RuntimeError("Não foi possível conectar ao banco de dados após várias tentativas.")
+
+aguardar_banco()
+
 Base.metadata.create_all(bind=engine)
+
+# --- SEED DE USUÁRIOS PADRÃO ---
+def seed_usuarios():
+    db = SessionLocal()
+    try:
+        usuarios_padrao = [
+            {"username": "usuario", "password": "123", "role": "usuario"},
+            {"username": "admin", "password": "123", "role": "admin"},
+        ]
+        for dados in usuarios_padrao:
+            existente = db.query(UsuarioBD).filter(UsuarioBD.username == dados["username"]).first()
+            if not existente:
+                db.add(UsuarioBD(**dados))
+        db.commit()
+    finally:
+        db.close()
+
+seed_usuarios()
 
 # --- SCHEMAS E APP ---
 class ProdutoSchema(BaseModel):

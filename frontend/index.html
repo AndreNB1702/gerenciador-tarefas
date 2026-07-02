@@ -55,16 +55,23 @@
         async function fazerLogin() {
             const u = document.getElementById("user").value;
             const p = document.getElementById("pass").value;
-            const res = await fetch(`${API}/login?username=${u}&password=${p}`, { method: "POST" });
-            
-            if (res.ok) {
-                const data = await res.json();
-                localStorage.setItem("role", data.role);
-                document.getElementById("login-screen").classList.add("hidden");
-                document.getElementById("estoque-screen").classList.remove("hidden");
-                if(data.role === "admin") document.getElementById("admin-area").classList.remove("hidden");
-                carregar();
-            } else { alert("Usuário ou senha incorretos!"); }
+            try {
+                const res = await fetch(`${API}/login?username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`, { method: "POST" });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem("role", data.role);
+                    document.getElementById("login-screen").classList.add("hidden");
+                    document.getElementById("estoque-screen").classList.remove("hidden");
+                    if(data.role === "admin") document.getElementById("admin-area").classList.remove("hidden");
+                    carregar();
+                } else {
+                    alert("Usuário ou senha incorretos!");
+                }
+            } catch (erro) {
+                alert("Não foi possível conectar ao servidor (" + API + "). Verifique se o backend está rodando (docker compose up -d --build) e tente novamente em alguns segundos.");
+                console.error(erro);
+            }
         }
 
         async function carregar() {
